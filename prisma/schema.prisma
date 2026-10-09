@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum EnquiryType {
+  QUICK
+  PROJECT
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  CLOSED
+}
+
+model Enquiry {
+  id             String        @id @default(cuid())
+  type           EnquiryType
+  status         EnquiryStatus @default(NEW)
+  name           String
+  company        String?
+  mobile         String
+  whatsapp       String?
+  email          String?
+  location       String?
+  service        String?
+  message        String
+  dimensions     String?
+  material       String?
+  quantity       String?
+  additional     String?
+  attachmentKey  String?
+  attachmentType String?
+  attachmentName String?
+  language       String        @default("en")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  mobile    String
+  email     String?
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id          String         @id @default(cuid())
+  slug        String         @unique
+  title       String
+  category    String
+  location    String?
+  description String
+  date        DateTime?
+  featured    Boolean        @default(false)
+  published   Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  images      ProjectImage[]
+}
+
+model ProjectImage {
+  id        String  @id @default(cuid())
+  projectId String
+  url       String
+  publicId  String
+  alt       String
+  sortOrder Int     @default(0)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  category  String
+  url       String
+  publicId  String
+  alt       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
