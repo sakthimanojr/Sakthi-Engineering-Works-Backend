@@ -3,7 +3,7 @@ import { signOut } from "@/auth";
 
 const links = [
   { href: "/admin", label: "Dashboard" }, { href: "/admin/enquiries", label: "Enquiries" }, { href: "/admin/messages", label: "Messages" },
-  { href: "/admin/projects", label: "Projects" }, { href: "/admin/gallery", label: "Gallery" },
+  { href: "/admin/projects", label: "Projects" }, { href: "/admin/gallery", label: "Gallery" }, { href: "/admin/covers", label: "Covers" },
 ];
 
 export default function AdminNav({ email }: { email: string }) {

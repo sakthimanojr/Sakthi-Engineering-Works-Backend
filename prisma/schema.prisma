@@ -93,6 +93,19 @@ model GalleryImage {
   createdAt DateTime @default(now())
 }
 
+model ServiceImage {
+  id          String   @id @default(cuid())
+  serviceSlug String
+  url         String
+  publicId    String
+  alt         String
+  isCover     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([serviceSlug])
+}
+
 model AdminUser {
   id           String   @id @default(cuid())
   email        String   @unique

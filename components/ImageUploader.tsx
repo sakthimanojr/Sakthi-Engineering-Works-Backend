@@ -8,7 +8,7 @@ const TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX = 10 * 1024 * 1024;
 
 /** Uploads straight from the browser to Cloudinary using a short-lived signature from our server. */
-export default function ImageUploader({ kind, onUploaded, label = "Upload photos" }: { kind: "projects" | "gallery"; onUploaded: (images: UploadedImage[]) => void | Promise<void>; label?: string }) {
+export default function ImageUploader({ kind, onUploaded, label = "Upload photos" }: { kind: "projects" | "gallery" | "covers"; onUploaded: (images: UploadedImage[]) => void | Promise<void>; label?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

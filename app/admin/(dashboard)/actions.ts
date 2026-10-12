@@ -124,3 +124,53 @@ export async function deleteGalleryImage(formData: FormData): Promise<void> {
   revalidatePath("/admin/gallery");
 }
 
+// ── Service Cover Image Actions ──────────────────────────────────────
+
+export async function addServiceImages(input: { serviceSlug: string; alt: string; images: { url: string; publicId: string }[] }): Promise<{ ok: boolean; error?: string }> {
+  await requireAdmin();
+  if (!(serviceSlugs as readonly string[]).includes(input.serviceSlug)) return { ok: false, error: "Choose a service." };
+  const alt = input.alt.trim().slice(0, 200);
+  const valid = input.images.filter((i) => isOurImageUrl(i.url) && isOurPublicId(i.publicId)).slice(0, 30);
+  if (!valid.length) return { ok: false, error: "No valid images." };
+  const existing = await prisma.serviceImage.count({ where: { serviceSlug: input.serviceSlug } });
+  const hasCover = existing > 0;
+  await prisma.serviceImage.createMany({
+    data: valid.map((i, idx) => ({
+      serviceSlug: input.serviceSlug,
+      url: i.url,
+      publicId: i.publicId,
+      alt: alt || `${input.serviceSlug.replace(/-/g, " ")} – Sakthi Engineering Works`,
+      isCover: !hasCover && idx === 0, // first image of a service auto-becomes cover if none exists
+    })),
+  });
+  await notifyFrontend();
+  revalidatePath("/admin/covers");
+  return { ok: true };
+}
+
+export async function deleteServiceImage(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const img = await prisma.serviceImage.findUnique({ where: { id } });
+  if (!img) return;
+  await prisma.serviceImage.delete({ where: { id } });
+  await destroyImage(img.publicId);
+  await notifyFrontend();
+  revalidatePath("/admin/covers");
+}
+
+export async function setCoverImage(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const img = await prisma.serviceImage.findUnique({ where: { id } });
+  if (!img) return;
+  // Clear all covers for this service, then set the selected one
+  await prisma.$transaction([
+    prisma.serviceImage.updateMany({ where: { serviceSlug: img.serviceSlug, isCover: true }, data: { isCover: false } }),
+    prisma.serviceImage.update({ where: { id }, data: { isCover: true } }),
+  ]);
+  await notifyFrontend();
+  revalidatePath("/admin/covers");
+}

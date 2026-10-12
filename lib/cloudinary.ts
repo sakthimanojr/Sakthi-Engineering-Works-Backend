@@ -12,9 +12,9 @@ export const cloudinaryConfigured = () => Boolean(process.env.CLOUDINARY_CLOUD_N
 
 /** Only accept image URLs that really live in OUR Cloudinary account and the folder we sign. */
 export const isOurImageUrl = (url: string) => cloudName !== "" && url.startsWith(`https://res.cloudinary.com/${cloudName}/image/upload/`);
-export const isOurPublicId = (id: string) => /^sakthi\/(projects|gallery)\/[\w-]+$/.test(id);
+export const isOurPublicId = (id: string) => /^sakthi\/(projects|gallery|covers)\/[\w-]+$/.test(id);
 
-export const UPLOAD_FOLDERS = { projects: "sakthi/projects", gallery: "sakthi/gallery" } as const;
+export const UPLOAD_FOLDERS = { projects: "sakthi/projects", gallery: "sakthi/gallery", covers: "sakthi/covers" } as const;
 export type UploadKind = keyof typeof UPLOAD_FOLDERS;
 
 /** Signature for a direct browser -> Cloudinary upload. The API secret never leaves the server. */
