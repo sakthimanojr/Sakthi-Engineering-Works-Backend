@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 import { destroyImage, isOurImageUrl, isOurPublicId } from "@/lib/cloudinary";
 import { notifyFrontend } from "@/lib/notify-frontend";
 import { requireAdmin } from "@/lib/session";
-import { galleryCategories, serviceSlugs } from "@/data/catalog";
+import { galleryCategories, serviceSlugs, serializeCoverAlt } from "@/data/catalog";
 
 const STATUSES: EnquiryStatus[] = ["NEW", "CONTACTED", "QUOTED", "CLOSED"];
 
@@ -126,23 +126,95 @@ export async function deleteGalleryImage(formData: FormData): Promise<void> {
 
 // ── Service Cover Image Actions ──────────────────────────────────────
 
-export async function addServiceImages(input: { serviceSlug: string; alt: string; images: { url: string; publicId: string }[] }): Promise<{ ok: boolean; error?: string }> {
+export async function addServiceImages(input: {
+  serviceSlug: string;
+  alt: string;
+  title?: string;
+  description?: string;
+  images: { url: string; publicId: string }[];
+}): Promise<{ ok: boolean; error?: string }> {
   await requireAdmin();
   if (!(serviceSlugs as readonly string[]).includes(input.serviceSlug)) return { ok: false, error: "Choose a service." };
-  const alt = input.alt.trim().slice(0, 200);
   const valid = input.images.filter((i) => isOurImageUrl(i.url) && isOurPublicId(i.publicId)).slice(0, 30);
   if (!valid.length) return { ok: false, error: "No valid images." };
   const existing = await prisma.serviceImage.count({ where: { serviceSlug: input.serviceSlug } });
   const hasCover = existing > 0;
+  const serializedAlt = serializeCoverAlt({
+    title: input.title,
+    description: input.description,
+    alt: input.alt.trim().slice(0, 200) || `${input.serviceSlug.replace(/-/g, " ")} – Sakthi Engineering Works`,
+  });
   await prisma.serviceImage.createMany({
     data: valid.map((i, idx) => ({
       serviceSlug: input.serviceSlug,
       url: i.url,
       publicId: i.publicId,
-      alt: alt || `${input.serviceSlug.replace(/-/g, " ")} – Sakthi Engineering Works`,
+      alt: serializedAlt,
       isCover: !hasCover && idx === 0, // first image of a service auto-becomes cover if none exists
     })),
   });
+  await notifyFrontend();
+  revalidatePath("/admin/covers");
+  return { ok: true };
+}
+
+export async function updateServiceImage(input: {
+  id: string;
+  serviceSlug?: string;
+  title?: string;
+  description?: string;
+  alt: string;
+  url?: string;
+  publicId?: string;
+  isCover?: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  await requireAdmin();
+  const id = input.id?.trim();
+  if (!id) return { ok: false, error: "Missing image ID." };
+  const img = await prisma.serviceImage.findUnique({ where: { id } });
+  if (!img) return { ok: false, error: "Image not found." };
+
+  const targetSlug = input.serviceSlug && (serviceSlugs as readonly string[]).includes(input.serviceSlug)
+    ? input.serviceSlug
+    : img.serviceSlug;
+
+  const serializedAlt = serializeCoverAlt({
+    title: input.title,
+    description: input.description,
+    alt: input.alt?.trim().slice(0, 200) || `${targetSlug.replace(/-/g, " ")} – Sakthi Engineering Works`,
+  });
+
+  const updateData: {
+    alt: string;
+    serviceSlug: string;
+    url?: string;
+    publicId?: string;
+  } = {
+    alt: serializedAlt,
+    serviceSlug: targetSlug,
+  };
+
+  if (input.url && isOurImageUrl(input.url) && input.publicId && isOurPublicId(input.publicId)) {
+    const oldPublicId = img.publicId;
+    updateData.url = input.url;
+    updateData.publicId = input.publicId;
+    if (oldPublicId && oldPublicId !== input.publicId) {
+      await destroyImage(oldPublicId);
+    }
+  }
+
+  if (input.isCover) {
+    await prisma.$transaction([
+      prisma.serviceImage.updateMany({ where: { serviceSlug: targetSlug, isCover: true }, data: { isCover: false } }),
+      prisma.serviceImage.update({ where: { id }, data: { ...updateData, isCover: true } }),
+    ]);
+  } else {
+    await prisma.serviceImage.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
   await notifyFrontend();
   revalidatePath("/admin/covers");
   return { ok: true };
